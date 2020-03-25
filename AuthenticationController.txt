@@ -1,0 +1,364 @@
+package com.scb.cic.mobile.auth.jaxrs;
+
+import static com.scb.cic.mobile.auth.util.SSOConstants.HEADER_X_FORWARDED_FOR;
+import static com.scb.cic.wb.commons.Constants.WB_TOKEN;
+import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
+
+import java.util.*;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+
+import com.scb.cic.mobile.auth.dto.*;
+import com.scb.cic.mobile.auth.util.LoginAuditUtil;
+import com.scb.cic.wb.commons.util.WBStringUtils;
+import io.jsonwebtoken.ExpiredJwtException;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.cxf.jaxrs.ext.MessageContext;
+
+import com.scb.cic.mobile.auth.service.AuthenticationService;
+import com.scb.cic.mobile.auth.service.UserRoleService;
+import com.scb.cic.mobile.auth.shiro.token.LdapToken;
+import com.scb.cic.mobile.auth.util.SSOConstants;
+import com.scb.cic.mobile.auth.util.SSOErrorCodes;
+import com.scb.cic.wb.commons.exception.BusinessException;
+import com.wordnik.swagger.annotations.Api;
+import com.wordnik.swagger.annotations.ApiOperation;
+import com.wordnik.swagger.annotations.ApiParam;
+
+@Path("/")
+@Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
+@Slf4j
+@Api(value = "/mobileauth")
+public class AuthenticationController {
+
+	@Setter
+	private AuthenticationService authenticationService;
+
+	@Setter
+	private UserRoleService userRoleService;
+
+	@Setter
+	private String defaultApplicationName;
+
+	@Context
+	private MessageContext context;
+
+	@POST
+	@Path("/user/login")
+	@ApiOperation(value = "Get accessToken and Profile", notes = "Authenticate the user login credentials and return accessToken for further service calls", response = String.class)
+	public Response loginWithProfile(@ApiParam(value = "username,password as JSON", required = true) final AuthenticationRequest request) {
+
+		LoginRequest loginRequest = getLoginRequest(request);
+
+		AuthenticationResponse response = authenticationService.loginWithProfile(loginRequest);
+		if (response.isError()) {
+			return constructErrorResponse(response.getJwtAccessToken());
+		}
+		return Response.ok().entity(response).build();
+	}
+
+	private LoginRequest getLoginRequest(final AuthenticationRequest request) {
+
+		HttpServletRequest httpRequest = context.getHttpServletRequest();
+		LoginRequest loginRequest = new LoginRequest();
+
+		LdapToken credential = new LdapToken(request.getUsername(), request.getPassword(), request.isForceLogin());
+		loginRequest.setCredentials(credential);
+		String ipAddress = getIpAddress();
+
+		String userAgent = httpRequest.getHeader(SSOConstants.CUSTOM_USER_AGENT);
+		if(WBStringUtils.isEmpty(userAgent)) {
+			userAgent = LoginAuditUtil.getUserAgent(httpRequest);
+		}
+
+		String deviceId = httpRequest.getHeader(SSOConstants.DEVICE_ID);
+		if(WBStringUtils.isEmpty(deviceId)) {
+			deviceId = "Unknown";
+		}
+
+		String applicationName = request.getApplicationName();
+		if (StringUtils.isBlank(applicationName)) {
+			applicationName = defaultApplicationName;
+		}
+		loginRequest.setApplicationName(applicationName);
+		loginRequest.setBrowser(userAgent);
+		loginRequest.setIpAddress(ipAddress);
+		loginRequest.setDeviceId(deviceId);
+		return loginRequest;
+	}
+
+	private String getIpAddress() {
+		HttpServletRequest httpRequest = context.getHttpServletRequest();
+		String ipAddress = null;
+		try {
+			ipAddress = httpRequest.getRemoteAddr();
+			String ipAddressFromHeader;
+			if ((ipAddressFromHeader = httpRequest.getHeader(HEADER_X_FORWARDED_FOR)) != null) {
+				ipAddress = ipAddressFromHeader;
+				int idx = ipAddress.indexOf(',');
+				if (idx > -1) {
+					ipAddress = ipAddress.substring(0, idx);
+				}
+			}
+		} catch (Exception e) {
+			log.error("Error occured while reading the remote address: {}", e);
+		}
+		log.info("getUserIpAddress: {}", ipAddress);
+		return ipAddress;
+	}
+
+	@GET
+	@Path("/user/userProfile")
+	@Produces(MediaType.APPLICATION_JSON)
+	@ApiOperation(value = "Get userprofile via accessToken", notes = "Get the user profile details for given user mobile token", response = String.class)
+	public Response fetchUserProfileForMobile(@ApiParam(value = "Token (WB_TOKEN) jwtAccessToken for authentication", required = true)
+									 @HeaderParam(WB_TOKEN)
+									 final String wbToken) {
+
+		log.debug("WB_TOKEN for mobile user: {}", wbToken);
+		try {
+			String accessToken = authenticationService.getParsedAccessToken(wbToken);
+
+			final Boolean isAuthenticated = authenticationService.isAuthenticated(accessToken);
+			if (!isAuthenticated) {
+				return constructErrorResponse(SSOConstants.INVALID_TOKEN);
+			}
+			authenticationService.sessionTouch(accessToken);
+			UserProfileResponse response = authenticationService.getUserProfileResponse(accessToken);
+			return Response.ok().entity(response).build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+	}
+
+	@GET
+	@Path("/user/profile")
+	@Produces(MediaType.APPLICATION_JSON)
+	@ApiOperation(value = "Get userprofile via accessToken", notes = "Get the user profile details for given user mobile token", response = String.class)
+	public Response fetchUserProfile(@ApiParam(value = "Token (WB_TOKEN) jwtAccessToken for authentication", required = true)
+									 @HeaderParam(WB_TOKEN)
+									 final String wbToken) {
+
+		log.debug("WB_TOKEN for mobile user: {}", wbToken);
+		try {
+			String accessToken = authenticationService.getParsedAccessToken(wbToken);
+
+			final Boolean isAuthenticated = authenticationService.isAuthenticated(accessToken);
+			if (!isAuthenticated) {
+				return constructErrorResponse(SSOConstants.INVALID_TOKEN);
+			}
+			authenticationService.sessionTouch(accessToken);
+			UserProfileResponse response = authenticationService.getUserProfileResponse(accessToken);
+			UserProfile userProfile = response.getUserProfile();
+			userProfile.setWbMobileAccessToken(accessToken);
+			return Response.ok().entity(userProfile).build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+	}
+		
+	@POST
+	@Path("/user/refreshToken")
+	@ApiOperation(value = "Get New accessToken and Profile via refresh token", notes = "Authenticate the refresh Token and return accessToken with user profile for further service calls", response = String.class)
+	public Response refreshAccessToken(@ApiParam(value = "Token (refreshToken) jwtRefreshToken for authentication", required = true)
+										   @HeaderParam("refreshToken") String jwtRefreshToken) {
+		try {
+			AuthenticationResponse response = authenticationService.loginWithRefreshToken(jwtRefreshToken);
+			if (response.isError()) {
+				return constructErrorResponse(response.getJwtAccessToken());
+			}
+			return Response.ok().entity(response).build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(jwtRefreshToken);
+		}
+	}
+	
+    @GET
+    @Path("/user/session")
+    @ApiOperation(value = "Validate MobileUser Session", notes = "Mobile User Session Validation based on the accessToken")
+    public Response validateMobileUserSession(@HeaderParam(WB_TOKEN) final String wbToken) {
+		try {
+			String accessToken = authenticationService.getParsedAccessToken(wbToken);
+			boolean isUserAuthenticated = authenticationService.isAuthenticated(accessToken);
+			if (!isUserAuthenticated) {
+				return constructErrorResponse(SSOConstants.INVALID_TOKEN);
+			}
+			String encryptedPassword = (String) authenticationService.getSessionAttribute(accessToken, SSOConstants.ENCRYTED_PASSWORD);
+			UserSession userSession = authenticationService.getCurrentUserSession(accessToken);
+			UserProfile userProfile = userSession.getUserProfile();
+			UserSessionDto userSessionDto = new UserSessionDto();
+			userSessionDto.setUserName(userProfile.getPsId());
+			userSessionDto.setEncryptedPassword(encryptedPassword);
+
+			return Response.ok().entity(userSessionDto).build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+    }
+    
+    @GET
+    @Path("/user/logout")
+    @ApiOperation(value = "Logout", notes = "Validate current token. If authenticated logout otherwise return un authorised response")
+    public Response logout(@ApiParam(value = "Token (WB_TOKEN) in header", required = true)
+                           @HeaderParam(WB_TOKEN) final String wbToken) {
+		String accessToken = null;
+		try {
+			accessToken = authenticationService.getParsedAccessToken(wbToken);
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+		if(StringUtils.isNotEmpty(accessToken)){
+			log.info("logout for mobile user WB_TOKEN: {}",accessToken);
+			authenticationService.logout(accessToken, false);
+		}
+		return Response.ok().build();
+    }
+	
+	@GET
+	@Path("/user/validate")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response wbAuthValidate(@HeaderParam(WB_TOKEN) final String wbToken) {
+
+		log.debug("Token Validation request from another WB-Mobile-Application: {}", wbToken);
+		try {
+			String accessToken = authenticationService.getParsedAccessToken(wbToken);
+			final Boolean isAuthenticated = authenticationService.isAuthenticated(accessToken, true, null);
+
+			if (!isAuthenticated) {
+				return constructErrorResponse(SSOConstants.INVALID_TOKEN);
+			}
+			authenticationService.sessionTouch(accessToken);
+			UserProfileResponse response = authenticationService.getUserProfileResponse(accessToken);
+			UserProfile userProfile = response.getUserProfile();
+			return Response.ok().entity(userProfile).build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+	}
+
+	@GET
+	@Path("/user/roles/ldap")
+	@ApiOperation(value = "Get LDAP Roles", notes = "Get the LDAP roles for given user mobile token", response = Set.class)
+	public Response getLdapRoles(@ApiParam(value = "Token (WB_TOKEN)) for authentication", required = true)
+									 @HeaderParam(WB_TOKEN) final String wbToken) {
+
+		log.debug("WB_TOKEN for mobile user: {}", wbToken);
+		try {
+			String accessToken = authenticationService.getParsedAccessToken(wbToken);
+
+			final Boolean isAuthenticated = authenticationService.isAuthenticated(accessToken);
+			if (!isAuthenticated) {
+				return constructErrorResponse(SSOConstants.INVALID_TOKEN);
+			}
+
+			authenticationService.sessionTouch(accessToken);
+			UserSession userSession = authenticationService.getCurrentUserSession(accessToken);
+			Set<String> ldapRoles = userSession.getActualLdapRoles();
+			return Response.ok(ldapRoles).build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+	}
+
+	@GET
+	@Path("/user/session/touch")
+	@ApiOperation(value = "Extend Session", notes = "Extend the authenticated user session with given user token")
+	public Response sessionTouch(@ApiParam(value = "Token (WB_TOKEN) for authentication", required = true)
+									 @HeaderParam(WB_TOKEN) final String wbToken) {
+
+		log.debug("WB_TOKEN for mobile user: {}", wbToken);
+		try {
+			String accessToken = authenticationService.getParsedAccessToken(wbToken);
+
+			final Boolean isAuthenticated = authenticationService.isAuthenticated(accessToken);
+			if (!isAuthenticated) {
+				return constructErrorResponse(SSOConstants.INVALID_TOKEN);
+			}
+			authenticationService.sessionTouch(accessToken);
+			return Response.ok().build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+	}
+
+	@GET
+	@Path("/role/all")
+	@ApiOperation(value = "Get All User Roles", notes = "Get all roles for the given authenticated user mobile token", response = String.class)
+	public Response getAllUserRoles(
+			@ApiParam(value = "Token (WB_TOKEN) for authentication", required = true) @HeaderParam(WB_TOKEN) final String wbToken) {
+
+		log.debug("WB_TOKEN for mobile user: {}", wbToken);
+		try {
+			String accessToken = authenticationService.getParsedAccessToken(wbToken);
+			final Boolean isAuthenticated = authenticationService.isAuthenticated(accessToken);
+			if (!isAuthenticated) {
+				return constructErrorResponse(SSOConstants.INVALID_TOKEN);
+			}
+			authenticationService.sessionTouch(accessToken);
+			final String roles = Arrays.toString(userRoleService.getAllUserRoles().toArray());
+			return Response.ok(roles).build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+	}
+
+	@GET
+	@Path("/user/name")
+	@ApiOperation(value = "Get Current User", notes = "Get the currently logged in user using given authenticated user mobile token", response = String.class)
+	public Response getCurrentUser(@ApiParam(value = "Token (WB_TOKEN) for authentication", required = true) @HeaderParam(WB_TOKEN) final String wbToken) {
+
+		log.debug("WB_TOKEN for mobile user: {}", wbToken);
+		try {
+			String accessToken = authenticationService.getParsedAccessToken(wbToken);
+			final Boolean isAuthenticated = authenticationService.isAuthenticated(accessToken);
+			if (!isAuthenticated) {
+				return constructErrorResponse(SSOConstants.INVALID_TOKEN);
+			}
+			authenticationService.sessionTouch(accessToken);
+			final String userId = authenticationService.getCurrentUserId(accessToken);
+			return Response.ok(userId).build();
+		}
+		catch (ExpiredJwtException eje) {
+			log.error("Error occured ExpiredJwtException: {}", eje);
+			return constructErrorResponse(wbToken);
+		}
+	}
+
+	private Response constructErrorResponse(String wbTokenResponse) {
+		String msg = wbTokenResponse;
+		if (wbTokenResponse == null) {
+			msg = SSOConstants.INVALID_CREDENTIAL;
+		} else if (SSOConstants.CONCURRENT_LOGIN_DETECTED.equals(wbTokenResponse)) {
+			throw new BusinessException(SSOErrorCodes.CONCURRENT_LOGIN);
+		}
+		return Response.status(UNAUTHORIZED).entity(msg).build();
+	}
+
+}

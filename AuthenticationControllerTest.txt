@@ -1,0 +1,356 @@
+package com.scb.cic.auth.jaxrs;
+
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.MockitoAnnotations.initMocks;
+import io.jsonwebtoken.ExpiredJwtException;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.core.Response;
+
+import lombok.extern.slf4j.Slf4j;
+
+import org.apache.cxf.jaxrs.client.WebClient;
+import org.apache.cxf.jaxrs.ext.MessageContext;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.reflect.Whitebox;
+
+import com.scb.cic.MockUtils;
+import com.scb.cic.mobile.auth.dto.AuthenticationRequest;
+import com.scb.cic.mobile.auth.dto.AuthenticationResponse;
+import com.scb.cic.mobile.auth.dto.LoginRequest;
+import com.scb.cic.mobile.auth.dto.UserProfile;
+import com.scb.cic.mobile.auth.dto.UserProfileResponse;
+import com.scb.cic.mobile.auth.dto.UserSession;
+import com.scb.cic.mobile.auth.jaxrs.AuthenticationController;
+import com.scb.cic.mobile.auth.service.AuthenticationService;
+import com.scb.cic.mobile.auth.service.UserRoleService;
+import com.scb.cic.mobile.auth.shiro.token.LdapToken;
+import com.scb.cic.mobile.auth.util.SSOConstants;
+import com.scb.cic.wb.commons.client.WBRestClient;
+import com.scb.cic.wb.commons.util.WbJsonUtils;
+
+/**
+ * Created by 1553494 on 3/28/2018.
+ */
+@Slf4j
+public class AuthenticationControllerTest {
+    private AuthenticationController authController;
+
+    @Mock
+    private AuthenticationService authenticationService;
+
+    @Mock
+    private UserRoleService userRoleService;
+
+    private AuthenticationResponse response;
+
+    private LoginRequest loginRequest;
+
+    @Mock
+    private MessageContext context;
+
+    @Before
+    public void setUp() throws Exception {
+        initMocks(this);
+
+        authController = new AuthenticationController();
+        authController.setAuthenticationService(authenticationService);
+        authController.setUserRoleService(userRoleService);
+        authController.setDefaultApplicationName("WB");
+
+        when(authenticationService.getCurrentUserId(any(String.class))).thenReturn("1166330");
+        when(authenticationService.getParsedAccessToken(any(String.class))).thenReturn("43");
+        doNothing().when(authenticationService).sessionTouch(any(String.class));
+        when(authenticationService.getUserProfileResponse(any(String.class))).thenReturn(MockUtils.getUserProfileResponse());
+        AuthenticationResponse authenticationResponse = new AuthenticationResponse();
+        when(authenticationService.loginWithRefreshToken(any(String.class))).thenReturn(authenticationResponse);
+        doNothing().when(authenticationService).logout(any(String.class), anyBoolean());
+        response = WbJsonUtils.parseJson("{\"jwtAccessToken\":\"eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJHQk1CMDAxIiwiaWF0IjoxNTIyMTM0ODY5LCJzdWIiOiJHQi1Nb2JpbGUtQXBwLUFjY2Vzc1Rva2VuIiwiaXNzIjoic2NiLndiLm1vYmlsZWFwcC5jb20iLCJhY2Nlc3NUb2tlbiI6IjgzNWI0YzA5ZGM4YzcxODUxY2ExOGM0Nzk2M2E1NzQwIiwiZXhwIjoxNTIyMTM4NDY5fQ.gYddqCIs0yt_LKrf-DpyhXLzvU-HzrsO1WVIDjhQU8A\",\"jwtRefreshToken\":\"eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJHQk1CMDAyIiwiaWF0IjoxNTIyMTM0ODY5LCJzdWIiOiJHQi1Nb2JpbGUtQXBwLVJlZnJlc2hUb2tlbiIsImlzcyI6InNjYi53Yi5tb2JpbGVhcHAuY29tIiwicmVmcmVzaFRva2VuIjoiNTFhNzdkNjVhNjZhZmQ5NmE2YjJmYzY4YWUzZDFmYWQiLCJtYXBwZWRBY2Nlc3NUb2tlbiI6IjgzNWI0YzA5ZGM4YzcxODUxY2ExOGM0Nzk2M2E1NzQwIiwicHNpZCI6IjE1MTE5NDYiLCJleHAiOjE1MjIyMjEyNjl9.Zu44gOvIUIuOeUYl8Soqe3mV2UYczoHDhSCgOVygRKw\",\"tokenType\":\"Bearer\",\"expiresIn\":1522138469000,\"error\":false}",AuthenticationResponse.class);
+    }
+
+    @Test
+    public void testGetLoginRequest(){
+        AuthenticationRequest request = new AuthenticationRequest();
+        request.setUsername("1495357");
+        request.setPassword("abc12345");
+        request.setForceLogin(true);
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+        when(httpServletRequest.getHeader("X-FORWARDED-FOR")).thenReturn("127.0.0.1,1");
+        when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(context.getHttpServletRequest()).thenReturn(httpServletRequest);
+        Whitebox.setInternalState(authController, "context", context);
+        try {
+            Whitebox.invokeMethod(authController,"getLoginRequest",request);
+            PowerMockito.when(httpServletRequest.getRemoteAddr()).thenThrow(Exception.class);
+            Whitebox.invokeMethod(authController,"getLoginRequest",request);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    @Test
+    public void testLoginWithProfile(){
+        AuthenticationRequest request = new AuthenticationRequest();
+        request.setUsername("1495357");
+        request.setPassword("abc12345");
+        request.setForceLogin(true);
+        AuthenticationController mockAuthController = PowerMockito.spy(new AuthenticationController());
+        mockAuthController.setAuthenticationService(authenticationService);
+        LdapToken credential = new LdapToken( "1495357", "abc12345", true);
+        loginRequest = new LoginRequest();
+        loginRequest.setCredentials(credential);
+        loginRequest.setApplicationName("WB");
+        loginRequest.setIpAddress("");
+        loginRequest.setBrowser("Chrome");
+        HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+        when(httpServletRequest.getHeader("X-FORWARDED-FOR")).thenReturn("127.0.0.1,1");
+        when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(context.getHttpServletRequest()).thenReturn(httpServletRequest);
+        Whitebox.setInternalState(mockAuthController, "context", context);
+        Mockito.when(authenticationService.loginWithProfile(any(LoginRequest.class))).thenReturn(response);
+        mockAuthController.loginWithProfile(request);
+        AuthenticationResponse response1 = new AuthenticationResponse("CONCURRENT_LOGIN_DETCTED",null,null,null,null, true);
+        Mockito.when(authenticationService.loginWithProfile(any(LoginRequest.class))).thenReturn(response1);
+        try{
+            mockAuthController.loginWithProfile(request);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testUserLogin() {
+        WebClient client = WBRestClient.create("http://10.23.152.42:9000").path("/api/wb/mobileauth/user/login");
+        client.accept(APPLICATION_JSON).type(APPLICATION_JSON);
+        String[] users = { "1013785"};
+        for (String userId : users) {
+            AuthenticationRequest request = new AuthenticationRequest();
+            request.setUsername(userId);
+            request.setPassword("abc12345");
+            request.setApplicationName("WB");
+            request.setForceLogin(true);
+            try {
+                Response response = client.post(WbJsonUtils.toJson(request));
+                log.info("UserId:{} Status:{}", userId, response.getStatus());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    @Test
+    public void testFetchUserProfileForMobile() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+            Response response = authController.fetchUserProfileForMobile("432432");
+            log.info("response:{}", response.getStatus());
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response1 = authController.fetchUserProfileForMobile("432432");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.fetchUserProfileForMobile("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testFetchUserProfile() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+            Response response = authController.fetchUserProfile("432432");
+            log.info("response:{}", response.getStatus());
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response1 = authController.fetchUserProfile("432432");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.fetchUserProfile("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testRefreshAccessToken() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+            Response response = authController.refreshAccessToken("432432");
+            log.info("response:{}", response.getStatus());
+            AuthenticationResponse response1 = new AuthenticationResponse("CONCURRENT_LOGIN_DETCTED",null,null,null,null, true);
+            Mockito.when(authenticationService.loginWithRefreshToken(anyString())).thenReturn(response1);
+            try{
+                authController.refreshAccessToken("43432");
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+            PowerMockito.when(authenticationService.loginWithRefreshToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.refreshAccessToken("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testValidateMobileUserSession() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+
+            when(authenticationService.getSessionAttribute("43", SSOConstants.ENCRYTED_PASSWORD)).thenReturn("eyJhbGciOiJIUzI1NiJ9eyJqdGkiOiJH");
+            UserSession userSession = new UserSession("432432", "1013785");
+            UserProfile userProfile = new UserProfile("1495357","Tuyet Nhien","Ho","Tuyet.Ho@sc.com","The Source Mobile App",
+                    "Singapore","Senior Business Analyst",null,new Long(0),new Long(0),"02078858555",null,"8 Marina Boulevard Marina Bay Financial Centre Tower 1, Level 28","OCC","12345","Product Owner");
+            userSession.setUserProfile(userProfile);
+            when(authenticationService.getCurrentUserSession(any(String.class))).thenReturn(userSession);
+            Response response = authController.validateMobileUserSession("432432");
+            log.info("response:{}", response.getStatus());
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response1 = authController.validateMobileUserSession("432432");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.validateMobileUserSession("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testLogout() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+            Response response = authController.logout("432432");
+            log.info("response:{}", response.getStatus());
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response1 = authController.logout("432432");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.logout("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testWbAuthValidate() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+
+            UserProfileResponse userProfileResponse = new UserProfileResponse();
+            UserSession userSession = new UserSession("1495357", "1495357");
+            UserProfile userProfile = new UserProfile("1495357","Tuyet Nhien","Ho","Tuyet.Ho@sc.com","The Source Mobile App",
+                    "Singapore","Senior Business Analyst",null,new Long(0),new Long(0),"02078858555",null,"8 Marina Boulevard Marina Bay Financial Centre Tower 1, Level 28","OCC","12345","Product Owner");
+            userSession.setUserProfile(userProfile);
+            userProfileResponse.setUserProfile(userProfile);
+            when(authenticationService.getUserProfileResponse("1495357")).thenReturn(userProfileResponse);
+            when(authenticationService.getCurrentUserSession(any(String.class))).thenReturn(userSession);
+            when(authenticationService.isAuthenticated(any(String.class), anyBoolean(), any(String.class))).thenReturn(true);
+            Response response = authController.wbAuthValidate("1495357");
+            log.info("response:{}", response.getStatus());
+            AuthenticationService mockAuthService = PowerMockito.mock(AuthenticationService.class);
+            when(mockAuthService.isAuthenticated(any(String.class))).thenReturn(false);
+            AuthenticationController authenticationController = new AuthenticationController();
+            authenticationController.setAuthenticationService(mockAuthService);
+            authenticationController.wbAuthValidate("1495357");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.wbAuthValidate("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testLdapRoles() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+
+            UserSession userSession = new UserSession("432432", "1013785");
+            userSession.setActualLdapRoles(new HashSet<String>());
+            when(authenticationService.getCurrentUserSession(any(String.class))).thenReturn(userSession);
+            Response response = authController.getLdapRoles("432432");
+            log.info("response:{}", response.getStatus());
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response1 = authController.getLdapRoles("432432");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.getLdapRoles("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testSessionTouch() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+
+            Response response = authController.sessionTouch("432432");
+            log.info("response:{}", response.getStatus());
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response1 = authController.sessionTouch("432432");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.sessionTouch("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testAllUserRoles() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+
+            List<String> userRolesList = new ArrayList<String>();
+            when(userRoleService.getAllUserRoles()).thenReturn(userRolesList);
+            Response response = authController.getAllUserRoles("432432");
+            log.info("response:{}", response.getStatus());
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response1 = authController.getAllUserRoles("432432");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.getAllUserRoles("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testCurrentUser() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(true);
+            when(authenticationService.getCurrentUserId(any(String.class))).thenReturn(any(String.class));
+            Response response = authController.getCurrentUser("432432");
+            log.info("response:{}", response.getStatus());
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response1 = authController.getCurrentUser("432432");
+            PowerMockito.when(authenticationService.getParsedAccessToken(anyString())).thenThrow(ExpiredJwtException.class);
+            authController.getCurrentUser("CONCURRENT_LOGIN_DETCTED");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testInvalidCurrentUser() {
+        try {
+            when(authenticationService.isAuthenticated(any(String.class))).thenReturn(false);
+            Response response = authController.getCurrentUser("434332432");
+            log.info("response:{}", response.getStatus());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testIsError(){
+        try {
+            Whitebox.invokeMethod(authController,"constructErrorResponse",null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}

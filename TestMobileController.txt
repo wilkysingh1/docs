@@ -1,0 +1,155 @@
+package com.scb.cic.auth.dao;
+
+import java.sql.Timestamp;
+
+import org.junit.Before;
+import org.junit.Test;
+import java.util.List;
+
+import com.scb.cic.mobile.auth.dao.LoginDAO;
+import com.scb.cic.mobile.auth.model.RmwbLoginAuditLog;
+
+import static org.junit.Assert.*;
+
+public class TestMobileController {
+
+	
+	
+	private MobileController mobileController;
+	
+	@Mock
+	private MobileService mobileService;
+	
+	private AuthenticationResponse response;
+	
+	
+	//@Mock
+	private RevenueVOResponse revenueVOResponse;
+	
+	
+
+	 @Before
+    public void setUp() throws Exception {
+        initMocks(this);
+		mobileController = new MobileController();
+		mobileController.setMobileService(mobileService);
+		
+		revenueVOResponse = new RevenueVOResponse();
+		
+		response = WbJsonUtils.parseJson("{\"jwtAccessToken\":\"eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJHQk1CMDAxIiwiaWF0IjoxNTIyMTM0ODY5LCJzdWIiOiJHQi1Nb2JpbGUtQXBwLUFjY2Vzc1Rva2VuIiwiaXNzIjoic2NiLndiLm1vYmlsZWFwcC5jb20iLCJhY2Nlc3NUb2tlbiI6IjgzNWI0YzA5ZGM4YzcxODUxY2ExOGM0Nzk2M2E1NzQwIiwiZXhwIjoxNTIyMTM4NDY5fQ.gYddqCIs0yt_LKrf-DpyhXLzvU-HzrsO1WVIDjhQU8A\",\"jwtRefreshToken\":\"eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJHQk1CMDAyIiwiaWF0IjoxNTIyMTM0ODY5LCJzdWIiOiJHQi1Nb2JpbGUtQXBwLVJlZnJlc2hUb2tlbiIsImlzcyI6InNjYi53Yi5tb2JpbGVhcHAuY29tIiwicmVmcmVzaFRva2VuIjoiNTFhNzdkNjVhNjZhZmQ5NmE2YjJmYzY4YWUzZDFmYWQiLCJtYXBwZWRBY2Nlc3NUb2tlbiI6IjgzNWI0YzA5ZGM4YzcxODUxY2ExOGM0Nzk2M2E1NzQwIiwicHNpZCI6IjE1MTE5NDYiLCJleHAiOjE1MjIyMjEyNjl9.Zu44gOvIUIuOeUYl8Soqe3mV2UYczoHDhSCgOVygRKw\",\"tokenType\":\"Bearer\",\"expiresIn\":1522138469000,\"error\":false}",AuthenticationResponse.class);
+		
+	
+	
+	}
+
+	@Test
+	private void revenueBreakDownTest() {
+	/*	private int startIndex;
+	private String entityToSearch;
+	private String serviceName;
+	private boolean chartEnabled;
+	private List<GridFilters> filters = new ArrayList<>();
+	private String entity;
+	private String subProfileId;
+	private String entityId;
+	private int facetStart;
+	private int facetNoOfRecsToFetch;
+	private int noOfRecsToFetch;
+	private String groupByField;
+	private String sortField;
+	
+	*/
+	
+	private GridRequest gridRequest = new GridRequest();
+	    gridRequest.setStartIndex(1);
+		gridRequest.setEntityToSearch("azx");
+		gridRequest.setServiceName("dfg");
+		gridRequest.setChartEnabled(true);
+		gridRequest.setFilters();
+		gridRequest.setEntity("qwe");
+		gridRequest.SubProfileId("qaz");
+		gridRequest.EntityId("xyz");
+		gridRequest.FacetStart(2);
+		gridRequest.FacetNoOfRecsToFetch(3);
+		gridRequest.NoOfRecsToFetch(2);
+		gridRequest.GroupByField("cds");
+		gridRequest.SortField("abc");
+		
+		MobileController mobileController = PowerMockito.spy(new MobileController());
+		mobileController.setMobileService(mobileService);
+		
+		revenueVOResponse = new RevenueVOResponse();
+		
+		// when(httpServletRequest.getHeader("X-FORWARDED-FOR")).thenReturn("127.0.0.1,1");
+		 Mockito.when(mobileService.getRevenueDetails(any(GridRequest.class))).thenReturn(response);
+		
+
+		 try{
+            mobileController.revenueBreakDown(gridRequest);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+		
+		
+	}
+
+	@Test
+	public void testInsertAuditLoginLog() {
+		for (int i = 0; i < 5; i++) {
+			populateAuditLog();
+			loginDAO.insertAuditLoginLog(rmwbLoginAuditLog);
+			System.out.println(rmwbLoginAuditLog.getLogId());
+			assertNotNull(rmwbLoginAuditLog.getLogId());
+		}
+	}
+
+	@Test
+	public void testUpdateAuditOnRefreshToken(){
+
+		try{
+			loginDAO.updateAuditOnRefreshToken("abc","abc");
+		}
+		catch(Exception e){
+			log(e.getMessage());
+			fail("Exception Occurred");
+		}
+
+
+	}
+
+	@Test
+	public void testUpdateAuditLogoutLog() {
+		String sessionId = "fe1a4478321b2765927dbee27798928b";
+		String logoutMethod = "L";
+
+		try{
+			loginDAO.updateAuditLogoutLog(sessionId, logoutMethod);
+		}
+		catch(Exception e){
+			//log(e.getMessage());
+		//	log.error("Exception occured while fetching picklist data" + e.getMessage(), e);
+			fail("Exception Occurred");
+		}
+
+	}
+
+	/*@Test
+	public void testGetActiveAuditLogByPsId() {
+		fail("Not yet implemented");
+	}*/
+
+	@Test
+	public void testUnlockUsers() {
+		String fromHours = "240/24/60";
+		String toHours = "120/24/60";
+		String appName = "GB-MOBILE";
+		List<RmwbLoginAuditLog>  test= loginDAO.getUnlockUser(fromHours, appName);
+		System.out.println("User PSID:" +test.get(0).getUserPsid());
+		List<RmwbLoginAuditLog>  test1= loginDAO.getUnlockUser(null, appName);
+		assertNotNull(test.get(0).getUserPsid());
+	}
+
+}
+===
+//mobileControllerTest

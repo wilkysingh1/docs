@@ -1,0 +1,177 @@
+package com.scb.cic.mobile.auth.jaxrs;
+
+import java.util.List;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+import com.scb.cic.mobile.auth.model.EntitySearchList;
+
+import com.scb.cic.mobile.auth.model.MobileNpsFeedback;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
+
+import com.scb.cic.mobile.auth.dto.FavouriteDetails;
+import com.scb.cic.mobile.auth.dto.UserPortfolioRevenueDetails;
+import com.scb.cic.mobile.auth.dto.revenuebreakdown.GridRequest;
+import com.scb.cic.mobile.auth.dto.revenuebreakdown.RevenueMtdResponse;
+import com.scb.cic.mobile.auth.dto.revenuebreakdown.RevenueVOResponse;
+import com.scb.cic.mobile.auth.service.MobileService;
+import com.scb.cic.wb.commons.rest.UserProfile;
+import com.wordnik.swagger.annotations.ApiOperation;
+import com.wordnik.swagger.annotations.ApiParam;
+
+@Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
+@Slf4j
+public class MobileController {
+
+	@Setter
+	private MobileService mobileService;
+
+	@GET
+	@Produces(MediaType.APPLICATION_JSON)
+	@ApiOperation(value = "To validate User Favourite List for Given Entity", notes = "Returns True or False")
+	@Path("/isFavourite")
+	public Response isFavourite(
+			@ApiParam(value = "entityId and subProfileId Defaulted to 0 (if not provided)", required = true) @QueryParam("entityId") final String entityId,
+			@DefaultValue("0") @QueryParam("subProfileId") final String subProfileId) {
+		FavouriteDetails favouriteDetails = null;
+		try {
+			long startTime = System.currentTimeMillis();
+			log.info("isFavourite for User :{}, Entity:{} and subProfileId:{}",UserProfile.getId(), entityId, subProfileId);
+			favouriteDetails = mobileService.validateUserFavourite(UserProfile.getId(), entityId, subProfileId);
+			log.info("Time taken to validate the favouriteDetails is:{} ms",(System.currentTimeMillis() - startTime));
+		} catch (Exception e) {
+			log.error("Exception while validating user Favourites for User PSID:{}, Entity:{} and subProfileId:{} and Exception:{}",
+					UserProfile.getId(), entityId, subProfileId, e);
+		}
+		return Response.ok().entity(favouriteDetails).build();
+	}
+
+	@Produces(MediaType.APPLICATION_JSON)
+	@POST
+	@ApiOperation(value = "Revenue Breakdown details for Group and Clients with Year-Over-Year Details",notes = "Returns Revenue details fo current & previous year")
+	@Path("/revenuebreakdown/details")
+	public Response revenueBreakDown(GridRequest requestParams) {
+		RevenueVOResponse revenueVOResponse = null;
+		try {
+			log.info("Revenue BreakDown Search Fields :: {} ", requestParams);
+			revenueVOResponse = mobileService.getRevenueDetails(requestParams);
+			log.debug("Response returned :: {}", revenueVOResponse);
+			return Response.status(200).entity(revenueVOResponse).build();
+		} catch (Exception e) {
+			log.error("Revenue BreakDown Exception #" + e);
+			return Response.status(500).entity(revenueVOResponse).build();
+		}
+	}
+	
+	@Produces(MediaType.APPLICATION_JSON)
+	@POST
+	@ApiOperation(value = "Key Financial Details of Group & Client ",notes = "Returns totalYTD,totalRORWA,totalYOYG,totalRWA,totalRWAYOYG")
+	@Path("/revenuebreakdown/kpi")
+	public Response keyFinancials(String requestJson) {
+		List<Object>  revenueDetails = null;
+		try {	
+			log.debug("keyFinancialDetails Grid Search Fields :: {} ", requestJson);
+			revenueDetails = mobileService.getKeyFinancialDetails(requestJson);
+			return Response.status(200).entity(revenueDetails).build();
+		} catch (Exception e) {
+			log.error("keyFinancialDetails Exception #" + e);
+			return Response.status(500).entity(revenueDetails).type(MediaType.APPLICATION_JSON_TYPE).build();
+		}
+		
+	}
+
+	@Produces(MediaType.APPLICATION_JSON)
+	@POST
+	@ApiOperation(value = "Contact entity name and country suggestion",notes = "Returns ")
+	@Path("/entity/suggestions")
+	public Response entitySuggestions(GridRequest requestParams) {
+		EntitySearchList entitySearchList = null;
+		try {
+			log.info("Contact Entity Name and Domicile Country Suggestion :: {} ", requestParams);
+			entitySearchList = mobileService.getEntitySuggestions(requestParams);
+			return Response.status(200).entity(entitySearchList).build();
+		} catch (Exception e) {
+			log.error("Contact Exception #" + e);
+			return Response.status(500).entity(entitySearchList).type(MediaType.APPLICATION_JSON_TYPE).build();
+		}
+
+	}
+	
+	@Produces(MediaType.APPLICATION_JSON)
+	@POST
+	@ApiOperation(value = "13months Revenue Details ",notes = "Returns 13months MTD")
+	@Path("/revenuebreakdown/mtd")
+	public Response getMonthlyRevenueDetails(GridRequest requestParams) {
+		RevenueMtdResponse revenueMtdResponse = null;
+		try {
+			log.info("Revenue 13months BreakDown Search Fields :: {} ", requestParams);
+			revenueMtdResponse = mobileService.getMtdDetails(requestParams);
+			log.info("Response returned :: {}", revenueMtdResponse);
+			return Response.status(200).entity(revenueMtdResponse).build();
+		} catch (Exception e) {
+			log.error("Revenue 13months BreakDown Exception #" + e);
+			return Response.status(500).entity(revenueMtdResponse).build();
+		}
+	}
+	
+	@Produces(MediaType.APPLICATION_JSON)
+	@POST
+	@ApiOperation(value = "Revenue Breakdown Details of Group & Client with MTD ",notes = "Returns Revenue Breakdown with YTD,YoY and MTD")
+	@Path("/revenuebreakdown")
+	public Response getRevenueBreakdownMtd(GridRequest requestParams) {
+		List<Object>  revenueDetails = null;
+		try {	
+			log.info("Revenue Breakdown YTD,YoY and MTD Grid Search Fields :: {} ", requestParams);
+			revenueDetails = mobileService.getRevenueBreakdownWithMtd(requestParams);
+			return Response.status(200).entity(revenueDetails).build();
+		} catch (Exception e) {
+			log.error("Revenue Breakdown YTD,YoY and MTD Exception #" + e);
+			return Response.status(500).entity(revenueDetails).type(MediaType.APPLICATION_JSON_TYPE).build();
+		}
+		
+	}
+	
+	@GET
+	@Produces(MediaType.APPLICATION_JSON)
+	@ApiOperation(value = "Fetch user portfolio level revenue details", notes = "Returns user portfolio level KeyFinancials details")
+	@Path("/portfolio/user/kpi")
+	public Response getManagedRevenues(@ApiParam(value = "userPsid is mandatory to fetch user portfolio level KeyFinanancials", required = true)
+										 @QueryParam("userPsid") final String userPsid) {
+		UserPortfolioRevenueDetails portfolioRevenueDetails = null;
+		try {
+			long startTime = System.currentTimeMillis();
+			/* userPsid is not taking from UserProfile.getId() and UserProfile.getPseudoId() is out of scope*/
+			log.info("portfolio KeyFinancials for User PSID:{} and PseudoId:{} ",userPsid,UserProfile.getPseudoId());
+			portfolioRevenueDetails = mobileService.getUserRevenueDetails(userPsid);
+			log.info("Time taken to fetch portfolio KeyFinancials for User PSID :{} is:{} ms", userPsid, (System.currentTimeMillis() - startTime));
+		} catch (Exception e) {
+			log.error("Exception while fetching portfolio KeyFinancials for User PSID:{}, Exception:{}",userPsid, e);
+			return Response.status(500).entity(portfolioRevenueDetails).type(MediaType.APPLICATION_JSON_TYPE).build();
+		}
+		return Response.status(200).entity(portfolioRevenueDetails).build();
+	}
+
+	@POST
+	@ApiOperation(value = "Inserting NPS ")
+	@Path("/nps/save")
+	public Response insertNps(MobileNpsFeedback requestParams) {
+		try {
+			log.info("Inserting NPS :: {} ", requestParams);
+			 mobileService.insertNps(requestParams);
+			return Response.status(200).build();
+		} catch (Exception e) {
+			log.error("Error while inserting NPS #" + e);
+			return Response.status(500).build();
+		}
+	}
+}

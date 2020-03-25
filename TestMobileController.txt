@@ -9,7 +9,41 @@ import java.util.List;
 import com.scb.cic.mobile.auth.dao.LoginDAO;
 import com.scb.cic.mobile.auth.model.RmwbLoginAuditLog;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.*;@Test
+private void revenueBreakDownTestForStatus200() {
+private GridRequest gridRequest = new GridRequest();
+
+MobileController mobileController = PowerMockito.spy(new MobileController());
+mobileController.setMobileService(mobileService);
+
+revenueVOResponse = new RevenueVOResponse();
+
+Mockito.when(mobileService.getRevenueDetails(any(GridRequest.class))).thenReturn(response);
+
+
+Response expectedResponse = new Response.status(200).entity(revenueVOResponse).build();
+    Response actualResponse = mobileController.revenueBreakDown(gridRequest);
+    Assert(actualResponse, expectedResponse)
+
+}
+
+@Test
+private void revenueBreakDownTestForStatus500() {
+private GridRequest gridRequest = new GridRequest();
+
+MobileController mobileController = PowerMockito.spy(new MobileController());
+mobileController.setMobileService(mobileService);
+
+revenueVOResponse = new RevenueVOResponse();
+
+Mockito.when(mobileService.getRevenueDetails(any(GridRequest.class))).thenThrow(Exception.class);
+
+
+Response expectedResponse = new Response.status(500).entity(revenueVOResponse).build();
+    Response actualResponse = mobileController.revenueBreakDown(gridRequest);
+    Assert(actualResponse, expectedResponse)
+
+}
 
 public class TestMobileController {
 

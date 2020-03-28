@@ -1,18 +1,32 @@
+package com.scb.cic.auth.jaxrs;
 
-package com.scb.cic.auth.dao;
 
 import java.sql.Timestamp;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.powermock.api.mockito.PowerMockito;
+import static org.mockito.Mockito.when;
 import java.util.List;
 
+import javax.ws.rs.core.Response;
+
 import com.scb.cic.mobile.auth.dao.LoginDAO;
+import com.scb.cic.mobile.auth.dto.revenuebreakdown.GridRequest;
+import com.scb.cic.mobile.auth.dto.revenuebreakdown.RevenueVOResponse;
+import com.scb.cic.mobile.auth.jaxrs.MobileController;
+import com.scb.cic.mobile.auth.model.EntitySearchList;
 import com.scb.cic.mobile.auth.model.RmwbLoginAuditLog;
+import com.scb.cic.mobile.auth.service.MobileService;
+import static org.mockito.Matchers.any;
+import javax.ws.rs.core.Response;
+import static org.mockito.MockitoAnnotations.initMocks;
 
 import static org.junit.Assert.*;
 
-public class TestMobileController {
+public class MobileControllerTest {
 
 
 
@@ -21,117 +35,114 @@ private MobileController mobileController;
 @Mock
 private MobileService mobileService;
 
-private AuthenticationResponse response;
-
-
-//@Mock
 private RevenueVOResponse revenueVOResponse;
+
+private Response response;
 
 
 
 @Before
-    public void setUp() throws Exception {
-        initMocks(this);
+public void setUp() throws Exception {
+ initMocks(this);
 mobileController = new MobileController();
 mobileController.setMobileService(mobileService);
 
-revenueVOResponse = new RevenueVOResponse();
-
-response = WbJsonUtils.parseJson("{\"jwtAccessToken\":\"eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJHQk1CMDAxIiwiaWF0IjoxNTIyMTM0ODY5LCJzdWIiOiJHQi1Nb2JpbGUtQXBwLUFjY2Vzc1Rva2VuIiwiaXNzIjoic2NiLndiLm1vYmlsZWFwcC5jb20iLCJhY2Nlc3NUb2tlbiI6IjgzNWI0YzA5ZGM4YzcxODUxY2ExOGM0Nzk2M2E1NzQwIiwiZXhwIjoxNTIyMTM4NDY5fQ.gYddqCIs0yt_LKrf-DpyhXLzvU-HzrsO1WVIDjhQU8A\",\"jwtRefreshToken\":\"eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJHQk1CMDAyIiwiaWF0IjoxNTIyMTM0ODY5LCJzdWIiOiJHQi1Nb2JpbGUtQXBwLVJlZnJlc2hUb2tlbiIsImlzcyI6InNjYi53Yi5tb2JpbGVhcHAuY29tIiwicmVmcmVzaFRva2VuIjoiNTFhNzdkNjVhNjZhZmQ5NmE2YjJmYzY4YWUzZDFmYWQiLCJtYXBwZWRBY2Nlc3NUb2tlbiI6IjgzNWI0YzA5ZGM4YzcxODUxY2ExOGM0Nzk2M2E1NzQwIiwicHNpZCI6IjE1MTE5NDYiLCJleHAiOjE1MjIyMjEyNjl9.Zu44gOvIUIuOeUYl8Soqe3mV2UYczoHDhSCgOVygRKw\",\"tokenType\":\"Bearer\",\"expiresIn\":1522138469000,\"error\":false}",AuthenticationResponse.class);
-
-
+//revenueVOResponse = new RevenueVOResponse();
 
 }
 
 @Test
-private void revenueBreakDownTestForStatus200() {
-private GridRequest gridRequest = new GridRequest();
+public void revenueBreakDownTestForStatus200() {
+	
+ GridRequest gridRequest = new GridRequest();
 
 MobileController mobileController = PowerMockito.spy(new MobileController());
 mobileController.setMobileService(mobileService);
 
 revenueVOResponse = new RevenueVOResponse();
 
-Mockito.when(mobileService.getRevenueDetails(any(GridRequest.class))).thenReturn(response);
+when(mobileService.getRevenueDetails(any(GridRequest.class))).thenReturn(revenueVOResponse);
 
-
-	Response expectedResponse = new Response.status(200).entity(revenueVOResponse).build();
+	//Response expectedResponse = Response.status(200).entity(revenueVOResponse).build();
     Response actualResponse = mobileController.revenueBreakDown(gridRequest);
-    Assert(actualResponse, expectedResponse)
-
+    assertNotNull(actualResponse);
 }
 
-@Test
-private void revenueBreakDownTestForStatus500() {
-private GridRequest gridRequest = new GridRequest();
+@Test(expected=java.lang.Exception.class)
+public void revenueBreakDownTestForStatus500() {
+ GridRequest gridRequest = new GridRequest();
 
 MobileController mobileController = PowerMockito.spy(new MobileController());
 mobileController.setMobileService(mobileService);
-
 revenueVOResponse = new RevenueVOResponse();
 
-Mockito.doThrow(new Exception()).when(mobileService).getRevenueDetails(any(GridRequest.class));
+Mockito.doThrow(new RuntimeException("500")).when(mobileService.getRevenueDetails(any(GridRequest.class)));
 
-	Response expectedResponse = new Response.status(500).entity(revenueVOResponse).build();
-    Response actualResponse = mobileController.revenueBreakDown(gridRequest);
-    Assert(actualResponse, expectedResponse)
+mobileController.revenueBreakDown(gridRequest);
 
 }
+
 
 @Test
-public void testInsertAuditLoginLog() {
-for (int i = 0; i < 5; i++) {
-populateAuditLog();
-loginDAO.insertAuditLoginLog(rmwbLoginAuditLog);
-System.out.println(rmwbLoginAuditLog.getLogId());
-assertNotNull(rmwbLoginAuditLog.getLogId());
+public void keyFinancialsTestForStatus200() {
+		List<Object>  revenueDetails = null;
+		
+		String requestJson = null;
+		MobileController mobileController = PowerMockito.spy(new MobileController());
+        mobileController.setMobileService(mobileService);
+		when(mobileService.getKeyFinancialDetails(any(String.class))).thenReturn(revenueDetails);
+		
+	Response expectedResponse = Response.status(200).entity(revenueDetails).build();
+    Response actualResponse = mobileController.keyFinancials(requestJson);
+   // assertSame(actualResponse, expectedResponse);
+    assertNotNull(actualResponse);
+		
 }
-}
+
+
+@Test(expected=java.lang.Exception.class)
+public void keyFinancialsTestForStatus500() {
+		
+	String requestJson = null;
+
+	MobileController mobileController = PowerMockito.spy(new MobileController());
+	mobileController.setMobileService(mobileService);
+	revenueVOResponse = new RevenueVOResponse();
+
+	Mockito.doThrow(new RuntimeException("500")).when(mobileService.getKeyFinancialDetails((any(String.class))));
+
+	mobileController.keyFinancials(requestJson);
+		
+	}
 
 @Test
-public void testUpdateAuditOnRefreshToken(){
+public void entitySuggestionsTestForStatus200() {
+GridRequest gridRequest = new GridRequest();
+	EntitySearchList entitySearchList = null;
+	
+	MobileController mobileController = PowerMockito.spy(new MobileController());
+    mobileController.setMobileService(mobileService);
+	when(mobileService.getEntitySuggestions(any(GridRequest.class))).thenReturn(entitySearchList);
+	
+	Response actualResponse = mobileController.entitySuggestions(gridRequest);
+  // assertSame(actualResponse, expectedResponse);
+  assertNotNull(actualResponse);
+	
+	}
 
-try{
-loginDAO.updateAuditOnRefreshToken("abc","abc");
-}
-catch(Exception e){
-log(e.getMessage());
-fail("Exception Occurred");
-}
+@Test(expected=java.lang.Exception.class)
+public void entitySuggestionsTestForStatus500() {
+		
+	GridRequest gridRequest = new GridRequest();
+	
 
+	MobileController mobileController = PowerMockito.spy(new MobileController());
+	mobileController.setMobileService(mobileService);
+	
+	Mockito.doThrow(new RuntimeException("500")).when(mobileService.getEntitySuggestions(any(GridRequest.class)));
 
-}
-
-@Test
-public void testUpdateAuditLogoutLog() {
-String sessionId = "fe1a4478321b2765927dbee27798928b";
-String logoutMethod = "L";
-
-try{
-loginDAO.updateAuditLogoutLog(sessionId, logoutMethod);
-}
-catch(Exception e){
-//log(e.getMessage());
-// log.error("Exception occured while fetching picklist data" + e.getMessage(), e);
-fail("Exception Occurred");
-}
-
-}
-
-/*@Test
-public void testGetActiveAuditLogByPsId() {
-fail("Not yet implemented");
-}*/
-
-@Test
-public void testUnlockUsers() {
-String fromHours = "240/24/60";
-String toHours = "120/24/60";
-String appName = "GB-MOBILE";
-List<RmwbLoginAuditLog>  test= loginDAO.getUnlockUser(fromHours, appName);
-System.out.println("User PSID:" +test.get(0).getUserPsid());
-List<RmwbLoginAuditLog>  test1= loginDAO.getUnlockUser(null, appName);
-assertNotNull(test.get(0).getUserPsid());
-}
+	mobileController.entitySuggestions(gridRequest);
+		
+	}
 
 }

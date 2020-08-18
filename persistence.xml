@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
+        xmlns="http://java.sun.com/xml/ns/persistence"
+        version="2.0">
+
+    <persistence-unit name="psrPersistenceUnit"
+                      transaction-type="JTA">
+        <provider>org.hibernate.ejb.HibernatePersistence</provider>
+        <jta-data-source>osgi:service/javax.sql.DataSource/(osgi.jndi.service.name=jdbc/Dtsdatasource)</jta-data-source>
+        <class>com.scb.cic.wb.psr.entity.ParamDataEntity</class>
+        <class>com.scb.cic.wb.psr.entity.ParamDataEntityB</class>
+        <class>com.scb.cic.wb.psr.entity.TransactionLockStatusEntity</class>
+        <class>com.scb.cic.wb.psr.entity.DealMemberAndLeaderEntity</class>
+        <class>com.scb.cic.wb.psr.entity.DealTeamEntity</class>
+        <class>com.scb.cic.wb.psr.entity.DealProductDetail</class>
+        <class>com.scb.cic.wb.psr.entity.AutoNotificationEntity</class>
+        <class>com.scb.cic.wb.psr.entity.DealDetailEntity</class>
+        <class>com.scb.cic.wb.psr.entity.OnshoreOffshoreStatusEntity</class>
+        <class>com.scb.cic.wb.psr.entity.ConflictsClearanceStatusEntity</class>
+        <class>com.scb.cic.wb.psr.entity.ConflictsClearanceExclusivityEntity</class>
+        <class>com.scb.cic.wb.psr.entity.DocumentAttachment</class>
+        <class>com.scb.cic.wb.psr.entity.PsrDetailEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrCrossSellEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrProductEntity</class>
+        <class>com.scb.cic.wb.psr.entity.WorkflowHistoryEntity</class>
+        <class>com.scb.cic.wb.psr.entity.WorkflowHistoryDetailsEntity</class>
+        <class>com.scb.cic.wb.psr.entity.UserDetailEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrAccountingEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrBhcaEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrConductEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrFccEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrVolckerEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrVolckerTypeEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrVulnerableEntity</class>
+        <class>com.scb.cic.wb.psr.entity.ApproverEntity</class>
+        <class>com.scb.cic.wb.psr.entity.DealCounterPartyDetail</class>
+        <class>com.scb.cic.wb.psr.entity.DealAdditionalClientDetail</class>
+        <class>com.scb.cic.wb.psr.entity.RecipientEntity</class>
+        <class>com.scb.cic.wb.psr.entity.QuestionEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrRevisionEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrLongTextEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrTaskEntity</class>
+        <class>com.scb.cic.wb.psr.entity.DocumentAttachmentAudit</class>
+        <class>com.scb.cic.wb.psr.entity.DocumentCategoryEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrSnapshotDetail</class>
+        <class>com.scb.cic.wb.psr.entity.PsrSnapshot</class>
+        <class>com.scb.cic.wb.psr.entity.PickListEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrRelatedProductEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrMarketRiskEntity</class>
+        <class>com.scb.cic.wb.psr.entity.PsrCrossBorderEntity</class>
+        <class>com.scb.cic.wb.psr.model.solr.DealActivity</class>
+        <class>com.scb.cic.wb.psr.entity.DealPsrEntity</class>
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
+
+        <properties>
+            <property name="hibernate.archive.autodetection" value="class"/>
+            <property name="hibernate.cache.use_second_level_cache"
+                      value="false"/>
+            <property name="hibernate.cache.use_query_cache" value="false"/>
+            <property name="hibernate.dialect" value="org.hibernate.dialect.Oracle10gDialect"/>
+            <property name="hibernate.show_sql" value="true"/>
+            <property name="hibernate.event.merge.entity_copy_observer" value="allow"/>
+            <property name="org.hibernate.envers.store_data_at_delete"
+                      value="true"/>
+            <property name="org.hibernate.envers.revision_field_name"
+                      value="ID_REV"/>
+            <property name="org.hibernate.envers.revision_type_field_name"
+                      value="N_REVTYPE"/>
+           </properties>
+    </persistence-unit>
+
+    <persistence-unit name="psrEntmtPersistenceUnit" transaction-type="JTA">
+        <provider>org.hibernate.ejb.HibernatePersistence</provider>
+        <jta-data-source>osgi:service/javax.sql.DataSource/(osgi.jndi.service.name=jdbc/Entitlementdatasource)
+        </jta-data-source>
+        <class>com.scb.cic.wb.psr.entity.PsrApproversRecipientsEntity</class>
+        <class>com.scb.cic.wb.psr.entity.UserEntmtDetails</class>
+        <class>com.scb.cic.wb.psr.entity.UserTeamEntity</class>
+        <class>com.scb.cic.wb.psr.entity.EmailDistributionUserEntity</class>
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
+        <properties>
+            <property name="hibernate.cache.use_second_level_cache" value="false"/>
+            <property name="hibernate.cache.use_query_cache" value="false"/>
+            <property name="hibernate.dialect" value="org.hibernate.dialect.Oracle10gDialect"/>
+            <property name="hibernate.show_sql" value="true"/>
+        </properties>
+    </persistence-unit>
+</persistence>
